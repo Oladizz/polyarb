@@ -19,6 +19,7 @@ except ImportError:
         ]
         return f"{header_line}\n{sep_line}\n" + "\n".join(row_lines)
 
+from app.execution.trader import AutonomousTrader
 from app.ingestor.gamma_client import GammaClient
 from app.research.dossier_generator import DossierGenerator
 from app.research.quant_researcher import QuantResearcher
@@ -96,11 +97,53 @@ def cmd_paper():
     print(f"• Total Trades:    {summary['total_trades']} (Win Rate: {summary['win_rate_pct']}%)")
 
 
+def cmd_portfolio():
+    trader = AutonomousTrader()
+    summary = trader.get_summary()
+    print("\n💼 PolyArb Quantitative Portfolio Summary:")
+    print(f"• Mode:             {summary['mode'].upper()}")
+    print(f"• Starting Balance: ${summary['starting_balance_usdc']:,.2f} USDC")
+    print(f"• Cash Balance:     ${summary['cash_balance_usdc']:,.2f} USDC")
+    print(f"• Invested Capital: ${summary['invested_usdc']:,.2f} USDC")
+    print(f"• Total Equity:     ${summary['total_portfolio_equity_usdc']:,.2f} USDC")
+    print(f"• Realized PnL:     ${summary['realized_pnl_usdc']:+,.2f} USDC")
+    print(f"• Est Unrealized:   ${summary['est_unrealized_pnl_usdc']:+,.2f} USDC")
+    print(f"• Total ROI:        {summary['roi_pct']:+}%")
+    print(f"• Win Rate:         {summary['win_rate_pct']}% ({summary['winning_trades']} wins / {summary['total_completed_trades']} closed)")
+    print(f"• Open Positions:   {summary['active_positions_count']}")
+
+    if summary["active_positions"]:
+        print("\nActive Open Positions:")
+        table = []
+        for p in summary["active_positions"]:
+            table.append([p["question"][:40], p["side"], f"${p['entry_price']}", f"${p['size_usdc']}", f"{p.get('est_apy_pct', 0)}%"])
+        print(tabulate(table, headers=["Market", "Side", "Entry Price", "Allocated", "Est APY"], tablefmt="fancy_grid"))
+
+
+def cmd_trade(interval: int = 30, mode: str = "paper", cycles: int | None = None):
+    print(f"\n🦅 Launching PolyArb Autonomous Trader [{mode.upper()} mode]...")
+    trader = AutonomousTrader(mode=mode)
+    if cycles == 1:
+        res = trader.run_cycle()
+        print("\n✅ Execution Cycle Completed:")
+        print(f"• Active Positions: {res['active_positions_count']}")
+        print(f"• Cash Balance:     ${res['current_balance_usdc']:,.2f} USDC")
+        print(f"• Total PnL:        ${res['total_pnl_usdc']:+,.2f} USDC")
+        print(f"• Total ROI:        {res['roi_pct']:+}%")
+    else:
+        trader.run_daemon(interval_seconds=interval, max_cycles=cycles)
+
+
 def main():
     parser = argparse.ArgumentParser(description="PolyArb: Polymarket Quant Scanner & Intelligence Bot")
     parser.add_argument("--scan", action="store_true", help="Run live arbitrage scan")
     parser.add_argument("--research", type=str, nargs="?", const="polymarket arbitrage loopholes", help="Generate quant research dossier")
     parser.add_argument("--paper", action="store_true", help="View paper trading summary")
+    parser.add_argument("--portfolio", action="store_true", help="View persistent portfolio and active positions")
+    parser.add_argument("--trade", action="store_true", help="Start autonomous execution trading loop")
+    parser.add_argument("--interval", type=int, default=30, help="Polling interval in seconds (default: 30)")
+    parser.add_argument("--mode", type=str, default="paper", choices=["paper", "live"], help="Execution mode (default: paper)")
+    parser.add_argument("--cycles", type=int, default=None, help="Number of cycles to run (default: continuous)")
     parser.add_argument("--server", action="store_true", help="Start Web Dashboard & REST API server")
     parser.add_argument("--daemon", action="store_true", help="Start Telegram Bot daemon")
 
@@ -112,6 +155,10 @@ def main():
         cmd_research(args.research)
     elif args.paper:
         cmd_paper()
+    elif args.portfolio:
+        cmd_portfolio()
+    elif args.trade:
+        cmd_trade(interval=args.interval, mode=args.mode, cycles=args.cycles)
     elif args.server:
         from app.api.server import PORT, app
         print(f"🚀 Starting PolyArb Dashboard on port {PORT}...")

@@ -16,3 +16,5 @@ dist/
 build/
 *.egg-info/
 reports/*.pdf
+data/*.json
+data/*.tmp

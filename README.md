@@ -10,7 +10,7 @@
 [![Deploy to Render](https://img.shields.io/badge/Deploy%20to-Render-46E3B7?logo=render&logoColor=white)](render.yaml)
 [![Deploy on Railway](https://img.shields.io/badge/Deploy%20on-Railway-0B0D0E?logo=railway&logoColor=white)](railway.json)
 
-[Overview](#-overview) • [The 3 Core Inefficiencies](#-the-3-core-inefficiencies) • [Live Dashboard](#-live-web-dashboard) • [Telegram Bot](#-telegram-bot) • [Quickstart](#-quickstart)
+[Overview](#-overview) • [Autonomous Trading Engine](#-autonomous-trading-engine) • [The 3 Core Inefficiencies](#-the-3-core-inefficiencies) • [Live Dashboard](#-live-web-dashboard) • [Telegram Bot](#-telegram-bot) • [Quickstart](#-quickstart)
 
 </div>
 
@@ -33,6 +33,29 @@ Unlike naive bots that try to "guess" event winners with language models, **Poly
 ```
 
 ---
+
+---
+
+## ⚡ Autonomous Trading Engine
+
+PolyArb features a production-grade automated trading daemon that runs 24/7 in an event loop:
+
+* **Continuous Live Market Ingestion:** Polls Polymarket CLOB and Gamma feeds at configurable intervals.
+* **UMA Oracle Dispute Filter:** Passes every candidate market through [`OracleAuditor`](file:///home/rabiuoladizz/polyarb/app/scanner/oracle_audit.py) to reject ambiguous resolution rules or disputed questions.
+* **Capital Allocation & Position Sizing:** Enforces maximum capital per position, portfolio diversification, and fee/slippage buffers.
+* **Settlement Tracking:** Monitors active holdings until market resolution, settles winning tokens, and credits realized PnL.
+* **State Persistence:** Saves portfolio equity, active positions, and trade history across restarts (`data/portfolio.json`).
+
+```bash
+# Run one execution cycle and display portfolio impact
+python cli.py --trade --cycles 1
+
+# Run the 24/7 continuous autonomous trading daemon (30s interval)
+python cli.py --trade --interval 30 --mode paper
+
+# View active positions and portfolio equity
+python cli.py --portfolio
+```
 
 ## ⚡ The 3 Core Inefficiencies
 

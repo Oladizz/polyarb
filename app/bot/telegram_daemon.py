@@ -1,12 +1,13 @@
 """
 Interactive Telegram Bot Daemon for PolyArb.
-Provides live scans, paper trade management, and direct PDF quant dossier delivery.
+Provides live scans, autonomous execution, paper trade management, and direct PDF quant dossier delivery.
 """
 import time
 
 import requests
 
 from app.core.config import TELEGRAM_BOT_TOKEN
+from app.execution.trader import AutonomousTrader
 from app.ingestor.gamma_client import GammaClient
 from app.research.dossier_generator import DossierGenerator
 from app.research.quant_researcher import QuantResearcher
@@ -29,6 +30,7 @@ class PolyArbTelegramDaemon:
         self.res_lag_scanner = ResolutionLagScanner()
         self.maker_reward_scanner = MakerRewardScanner()
         self.paper_trader = PaperTrader()
+        self.auto_trader = AutonomousTrader()
         self.quant_researcher = QuantResearcher()
         self.dossier_generator = DossierGenerator()
 
@@ -76,6 +78,8 @@ class PolyArbTelegramDaemon:
                 "settlement discounts, and generate quantitative research dossiers.\n\n"
                 "⚡ *Live Commands:*\n"
                 "• `/scan` — Comprehensive live scan across all strategies\n"
+                "• `/auto` — Run an autonomous quant trading cycle\n"
+                "• `/portfolio` — View live trading portfolio & open positions\n"
                 "• `/negrisk` — Multi-outcome combinatorial mispricings (∑P ≠ 1.00)\n"
                 "• `/reslag` — Resolution lag discount yields (high probability >= 98¢)\n"
                 "• `/rewards` — High-paying Merkl liquidity mining pools\n"
@@ -112,7 +116,40 @@ class PolyArbTelegramDaemon:
             else:
                 lines.append("⏳ *Resolution Lag:* No high-probability discounted shares active.")
 
-            lines.append("\n👉 Run `/simulate` to execute a paper trade on the top opportunity.")
+            lines.append("\n👉 Run `/auto` to execute a quant cycle on all top opportunities.")
+            self.send_message(chat_id, "\n".join(lines))
+
+        elif cmd == "/auto":
+            self.send_message(chat_id, "🦅 *Running Autonomous Quant Execution Cycle...*")
+            res = self.auto_trader.run_cycle()
+            msg = (
+                f"✅ *Execution Cycle Completed!*\n\n"
+                f"• *Active Positions:* {res['active_positions_count']}\n"
+                f"• *Cash Balance:* ${res['current_balance_usdc']:,.2f} USDC\n"
+                f"• *Total PnL:* ${res['total_pnl_usdc']:+,.2f} USDC\n"
+                f"• *Total Portfolio ROI:* {res['roi_pct']:+}%\n\n"
+                f"Run `/portfolio` to see full holdings breakdown."
+            )
+            self.send_message(chat_id, msg)
+
+        elif cmd == "/portfolio":
+            summary = self.auto_trader.get_summary()
+            lines = [
+                "💼 *PolyArb Quantitative Portfolio*\n",
+                f"• *Mode:* `{summary['mode'].upper()}`",
+                f"• *Cash Balance:* `${summary['cash_balance_usdc']:,.2f} USDC`",
+                f"• *Invested Capital:* `${summary['invested_usdc']:,.2f} USDC`",
+                f"• *Total Equity:* `${summary['total_portfolio_equity_usdc']:,.2f} USDC`",
+                f"• *Realized PnL:* `${summary['realized_pnl_usdc']:+,.2f} USDC`",
+                f"• *Est Unrealized PnL:* `${summary['est_unrealized_pnl_usdc']:+,.2f} USDC`",
+                f"• *ROI:* `{summary['roi_pct']:+}%`",
+                f"• *Win Rate:* `{summary['win_rate_pct']}%`",
+                f"• *Open Positions:* `{summary['active_positions_count']}`\n"
+            ]
+            if summary["active_positions"]:
+                lines.append("*Active Open Holdings:*")
+                for p in summary["active_positions"][:4]:
+                    lines.append(f"• {p['question'][:35]} ({p['side']}) | Size: ${p['size_usdc']:.1f} | Est APY: {p.get('est_apy_pct', 0)}%")
             self.send_message(chat_id, "\n".join(lines))
 
         elif cmd == "/negrisk":
