@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: polyarb
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: MIN_ARBITRAGE_SPREAD_PCT
+        value: "1.5"
+      - key: MIN_VOLUME_USD
+        value: "5000"
