@@ -100,24 +100,38 @@ def cmd_paper():
 def cmd_portfolio():
     trader = AutonomousTrader()
     summary = trader.get_summary()
-    print("\n💼 PolyArb Quantitative Portfolio Summary:")
+    print("\n💼 PolyArb Quantitative Portfolio Summary (Strict Real-Life Mode):")
     print(f"• Mode:             {summary['mode'].upper()}")
     print(f"• Starting Balance: ${summary['starting_balance_usdc']:,.2f} USDC")
-    print(f"• Cash Balance:     ${summary['cash_balance_usdc']:,.2f} USDC")
+    print(f"• Available Cash:   ${summary['cash_balance_usdc']:,.2f} USDC")
     print(f"• Invested Capital: ${summary['invested_usdc']:,.2f} USDC")
     print(f"• Total Equity:     ${summary['total_portfolio_equity_usdc']:,.2f} USDC")
+    print(f"• Polygon Gas Paid: ${summary.get('total_gas_spent_usdc', 0.0):.4f} USDC")
     print(f"• Realized PnL:     ${summary['realized_pnl_usdc']:+,.2f} USDC")
     print(f"• Est Unrealized:   ${summary['est_unrealized_pnl_usdc']:+,.2f} USDC")
-    print(f"• Total ROI:        {summary['roi_pct']:+}%")
+    print(f"• Total Net ROI:    {summary['roi_pct']:+}%")
     print(f"• Win Rate:         {summary['win_rate_pct']}% ({summary['winning_trades']} wins / {summary['total_completed_trades']} closed)")
     print(f"• Open Positions:   {summary['active_positions_count']}")
 
     if summary["active_positions"]:
-        print("\nActive Open Positions:")
+        print("\nActive Open Holdings (UMA Liveness Lock):")
         table = []
         for p in summary["active_positions"]:
-            table.append([p["question"][:40], p["side"], f"${p['entry_price']}", f"${p['size_usdc']}", f"{p.get('est_apy_pct', 0)}%"])
-        print(tabulate(table, headers=["Market", "Side", "Entry Price", "Allocated", "Est APY"], tablefmt="fancy_grid"))
+            table.append([
+                p["question"][:36],
+                p["side"],
+                f"${p['entry_price']}",
+                f"${p['size_usdc']:.2f}",
+                f"-${p.get('entry_gas_usdc', 0.025):.3f}",
+                p.get("status", "LOCKED")[:25]
+            ])
+        print(tabulate(table, headers=["Market", "Side", "Fill Price", "Allocated", "Gas Paid", "Status / Liveness"], tablefmt="fancy_grid"))
+
+
+def cmd_reset_paper(amount: float = 100.0):
+    trader = AutonomousTrader()
+    trader.reset_portfolio(amount)
+    print(f"\n🔄 Portfolio reset to strict real-world starting balance: ${amount:,.2f} USDC.")
 
 
 def cmd_trade(interval: int = 30, mode: str = "paper", cycles: int | None = None):
@@ -141,6 +155,7 @@ def main():
     parser.add_argument("--research", type=str, nargs="?", const="polymarket arbitrage loopholes", help="Generate quant research dossier")
     parser.add_argument("--paper", action="store_true", help="View paper trading summary")
     parser.add_argument("--portfolio", action="store_true", help="View persistent portfolio and active positions")
+    parser.add_argument("--reset-paper", type=float, nargs="?", const=100.0, help="Reset paper portfolio to strict real-world balance (default: $100)")
     parser.add_argument("--trade", action="store_true", help="Start autonomous execution trading loop")
     parser.add_argument("--interval", type=int, default=30, help="Polling interval in seconds (default: 30)")
     parser.add_argument("--mode", type=str, default="paper", choices=["paper", "live"], help="Execution mode (default: paper)")
@@ -156,6 +171,8 @@ def main():
         cmd_research(args.research)
     elif args.paper:
         cmd_paper()
+    elif args.reset_paper is not None:
+        cmd_reset_paper(args.reset_paper)
     elif args.portfolio:
         cmd_portfolio()
     elif args.trade:

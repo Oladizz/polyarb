@@ -34,17 +34,19 @@ def test_autonomous_trader_execute_buy(tmp_path):
     assert pos is not None
     assert pos["market_id"] == "mkt_test_1"
     assert pos["size_usdc"] == 200.0
-    assert trader.balance_usdc == 800.0
+    # Balance deducted size + entry gas
+    assert round(trader.balance_usdc + trader.gas_fee_usdc, 2) == 800.0
     assert len(trader.active_positions) == 1
 
     summary = trader.get_summary()
     assert summary["invested_usdc"] == 200.0
-    assert summary["cash_balance_usdc"] == 800.0
+    assert round(summary["cash_balance_usdc"] + trader.gas_fee_usdc, 2) == 800.0
     assert summary["active_positions_count"] == 1
+    assert summary["total_gas_spent_usdc"] == trader.gas_fee_usdc
 
 
 def test_autonomous_trader_max_positions(tmp_path):
-    trader = AutonomousTrader(data_dir=str(tmp_path), max_active_positions=2, max_position_size=100.0)
+    trader = AutonomousTrader(data_dir=str(tmp_path), starting_balance=1000.0, max_active_positions=2, max_position_size=100.0)
     for i in range(4):
         opp = ResolutionDiscount(
             market_id=f"mkt_{i}",
@@ -63,7 +65,7 @@ def test_autonomous_trader_max_positions(tmp_path):
 
 
 def test_autonomous_trader_persistence(tmp_path):
-    trader1 = AutonomousTrader(data_dir=str(tmp_path), starting_balance=10000.0, max_position_size=500.0)
+    trader1 = AutonomousTrader(data_dir=str(tmp_path), starting_balance=1000.0, max_position_size=200.0)
     opp = ResolutionDiscount(
         market_id="mkt_persist",
         question="Will AI pass benchmark?",
@@ -82,3 +84,4 @@ def test_autonomous_trader_persistence(tmp_path):
     assert trader2.balance_usdc == trader1.balance_usdc
     assert len(trader2.active_positions) == 1
     assert trader2.active_positions[0]["market_id"] == "mkt_persist"
+    assert trader2.total_gas_spent_usdc == trader1.total_gas_spent_usdc

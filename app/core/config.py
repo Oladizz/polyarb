@@ -28,9 +28,22 @@ MIN_VOLUME_USD = float(os.environ.get("MIN_VOLUME_USD", "5000.0"))
 # Estimated slippage + taker fee buffer (%)
 ESTIMATED_FEE_SLIPPAGE_PCT = float(os.environ.get("ESTIMATED_FEE_SLIPPAGE_PCT", "0.5"))
 
-# ─── Paper Trading Defaults ──────────────────────────────────────
-PAPER_STARTING_BALANCE_USDC = float(os.environ.get("PAPER_STARTING_BALANCE_USDC", "10000.0"))
-MAX_POSITION_SIZE_USDC = float(os.environ.get("MAX_POSITION_SIZE_USDC", "500.0"))
+# ─── Realistic Paper Trading Defaults ──────────────────────────────
+# Strict real-world starting balance ($100 retail bankroll)
+PAPER_STARTING_BALANCE_USDC = float(os.environ.get("PAPER_STARTING_BALANCE_USDC", "100.0"))
+# Maximum 20% allocation per market ($20 max on $100 balance)
+MAX_POSITION_SIZE_USDC = float(os.environ.get("MAX_POSITION_SIZE_USDC", "20.0"))
+# Minimum Polymarket CLOB order size
+MIN_POSITION_SIZE_USDC = float(os.environ.get("MIN_POSITION_SIZE_USDC", "5.0"))
+
+# Simulated Polygon network gas fee ($0.025 USDC per on-chain tx)
+SIMULATED_POLYGON_GAS_USDC = float(os.environ.get("SIMULATED_POLYGON_GAS_USDC", "0.025"))
+
+# Polymarket protocol taker fee (0.2%)
+PROTOCOL_TAKER_FEE_PCT = float(os.environ.get("PROTOCOL_TAKER_FEE_PCT", "0.2"))
+
+# Minimum UMA Optimistic Oracle liveness / challenge period (24 hours)
+MIN_UMA_LIVENESS_HOURS = float(os.environ.get("MIN_UMA_LIVENESS_HOURS", "24.0"))
 
 # ─── Telegram Bot Settings ───────────────────────────────────────
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
