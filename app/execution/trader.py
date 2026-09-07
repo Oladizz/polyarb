@@ -206,7 +206,7 @@ class AutonomousTrader:
 
                 self.trade_history.append(pos)
                 resolved.append(pos)
-                logger.info("✅ [%s] SETTLED TRADE: %s | PnL: %+$%.2f (Proceeds: $%.2f)",
+                logger.info("✅ [%s] SETTLED TRADE: %s | PnL: +$%.2f (Proceeds: $%.2f)",
                             self.mode.upper(), pos["question"][:40], pnl, net_proceeds)
             else:
                 still_active.append(pos)
@@ -252,7 +252,7 @@ class AutonomousTrader:
             while True:
                 cycle_count += 1
                 cycle_result = self.run_cycle()
-                logger.info("Cycle %d done: Balance $%.2f | PnL %+$%.2f | Open Positions: %d",
+                logger.info("Cycle %d done: Balance $%.2f | PnL +$%.2f | Open Positions: %d",
                             cycle_count, cycle_result["current_balance_usdc"],
                             cycle_result["total_pnl_usdc"], cycle_result["active_positions_count"])
 
