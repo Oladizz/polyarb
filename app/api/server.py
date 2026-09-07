@@ -9,6 +9,7 @@ from dataclasses import asdict
 from flask import Flask, jsonify, render_template_string, request, send_file
 
 from app.core.config import PORT
+from app.execution.trader import AutonomousTrader
 from app.ingestor.gamma_client import GammaClient
 from app.research.dossier_generator import DossierGenerator
 from app.research.quant_researcher import QuantResearcher
@@ -24,6 +25,7 @@ neg_risk_scanner = NegativeRiskScanner()
 res_lag_scanner = ResolutionLagScanner()
 maker_reward_scanner = MakerRewardScanner()
 paper_trader = PaperTrader()
+auto_trader = AutonomousTrader()
 quant_researcher = QuantResearcher()
 dossier_generator = DossierGenerator()
 
@@ -37,7 +39,7 @@ def health():
         "status": "healthy",
         "service": "polyarb-engine",
         "version": "1.0.0",
-        "paper_balance": paper_trader.current_balance
+        "paper_balance": auto_trader.balance_usdc
     })
 
 
@@ -60,8 +62,11 @@ def api_scan():
 
 
 @app.route("/api/paper")
+@app.route("/api/portfolio")
 def api_paper():
-    return jsonify(paper_trader.get_summary())
+    auto_trader._load_state()
+    summary = auto_trader.get_summary()
+    return jsonify(summary)
 
 
 @app.route("/api/simulate", methods=["POST"])
@@ -223,10 +228,12 @@ def dashboard():
                 try {
                     const res = await fetch('/api/paper');
                     const data = await res.json();
-                    document.getElementById('paperBalance').innerText = '$' + data.current_balance_usdc.toLocaleString(undefined, {minimumFractionDigits: 2});
+                    const eq = data.total_portfolio_equity_usdc !== undefined ? data.total_portfolio_equity_usdc : data.current_balance_usdc;
+                    document.getElementById('paperBalance').innerText = '$' + eq.toLocaleString(undefined, {minimumFractionDigits: 2});
                     document.getElementById('paperRoi').innerText = (data.roi_pct >= 0 ? '+' : '') + data.roi_pct + '% ROI';
                     document.getElementById('paperWinRate').innerText = data.win_rate_pct + '%';
-                    document.getElementById('paperTrades').innerText = data.total_trades + ' Total Trades';
+                    const trades = data.total_completed_trades !== undefined ? data.total_completed_trades : (data.total_trades || 0);
+                    document.getElementById('paperTrades').innerText = trades + ' Closed (' + (data.active_positions_count || 0) + ' Active)';
                 } catch(e) {}
             }
 
