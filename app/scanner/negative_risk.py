@@ -22,6 +22,9 @@ class NegativeRiskScanner:
         opportunities = []
         if len(event.markets) < 2:
             return opportunities
+        # Strict check: events with >2 markets must be true NegRisk adapter markets
+        if len(event.markets) > 2 and not event.neg_risk:
+            return opportunities
 
         # Collect YES price for each mutually exclusive outcome
         outcome_data = []

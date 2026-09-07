@@ -29,7 +29,9 @@ from app.core.config import (
     SIMULATED_POLYGON_GAS_USDC,
 )
 from app.core.models import ResolutionDiscount
+from app.execution.combinatorial_engine import CombinatorialEngine
 from app.ingestor.gamma_client import GammaClient
+from app.scanner.negative_risk import NegativeRiskScanner
 from app.scanner.oracle_audit import OracleAuditor
 from app.scanner.resolution_lag import ResolutionLagScanner
 
@@ -77,6 +79,8 @@ class AutonomousTrader:
         self.gamma_client = GammaClient()
         self.scanner = ResolutionLagScanner(min_volume=self.min_volume_usd)
         self.oracle_auditor = OracleAuditor()
+        self.combinatorial_engine = CombinatorialEngine()
+        self.neg_risk_scanner = NegativeRiskScanner()
 
         self._load_state()
 
@@ -294,10 +298,32 @@ class AutonomousTrader:
         return resolved
 
     def run_cycle(self) -> dict[str, Any]:
-        """Runs a complete scanning, settling, and execution iteration."""
+        """Runs a complete scanning, settling, and multi-strategy execution iteration."""
         logger.info("--- Starting PolyArb Cycle [%s] (Real-Life Engine) ---", self.mode.upper())
+        # 1. Check resolutions on active holdings
         resolved = self.check_resolutions()
 
+        # 2. Check for INSTANT Combinatorial Complete-Set Arbitrage (Level 1)
+        combinatorial_trades = []
+        if self.balance_usdc >= 10.0:
+            events = self.gamma_client.get_events(limit=50)
+            comb_opps = self.neg_risk_scanner.scan_all(events)
+            for opp in comb_opps:
+                if self.balance_usdc < 10.0:
+                    break
+                exec_result = self.combinatorial_engine.execute_arbitrage(
+                    opp, available_capital=self.balance_usdc, mode=self.mode
+                )
+                if exec_result.get("status") == "SUCCESS":
+                    trade_record = exec_result["trade"]
+                    profit = exec_result["pnl_usdc"]
+                    gas = exec_result["gas_usdc"]
+                    self.balance_usdc = round(self.balance_usdc + profit, 2)
+                    self.total_gas_spent_usdc = round(self.total_gas_spent_usdc + gas, 4)
+                    self.trade_history.append(trade_record)
+                    combinatorial_trades.append(trade_record)
+
+        # 3. Check for Resolution Lag Settlement Discount Opportunities
         opportunities = self.scan_opportunities()
         logger.info("Found %d qualified low-risk discount opportunities.", len(opportunities))
 
@@ -312,6 +338,7 @@ class AutonomousTrader:
         return {
             "cycle_timestamp": datetime.now(timezone.utc).isoformat(),
             "resolved_count": len(resolved),
+            "combinatorial_count": len(combinatorial_trades),
             "new_positions_count": len(new_positions),
             "active_positions_count": len(self.active_positions),
             "cash_balance_usdc": summary["cash_balance_usdc"],
