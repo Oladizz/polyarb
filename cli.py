@@ -132,6 +132,7 @@ def cmd_trade(interval: int = 30, mode: str = "paper", cycles: int | None = None
         print(f"• Total ROI:        {res['roi_pct']:+}%")
     else:
         trader.run_daemon(interval_seconds=interval, max_cycles=cycles)
+        cmd_portfolio()
 
 
 def main():
